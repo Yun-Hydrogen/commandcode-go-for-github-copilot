@@ -151,7 +151,8 @@ export interface StreamCallbacks {
 export interface ThinkingCapability {
 	/** Effort values that appear in the model picker dropdown. */
 	supportedEfforts: readonly ReasoningEffort[];
-	defaultEffort: ReasoningEffort;
+	/** `none` is only valid when `canDisable` is true. */
+	defaultEffort: ThinkingEffort;
 	/** When true, `none` is offered alongside the configured efforts. */
 	canDisable: boolean;
 }

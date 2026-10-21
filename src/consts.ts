@@ -36,6 +36,9 @@ export const API_KEY_SECRET = 'commandcode-copilot.apiKey';
 /** memento key tracking whether the welcome walkthrough has been shown. */
 export const WELCOME_SHOWN_KEY = 'commandcode-copilot.welcomeShown';
 
+/** globalState key holding per-model overrides edited in the Model Settings GUI. */
+export const MODEL_OVERRIDES_KEY = 'commandcode-copilot.modelOverrides';
+
 // ---- Walkthrough ----
 
 /** Walkthrough contribution ID. */
@@ -63,6 +66,16 @@ export const DEFAULT_THREAD_ID = '00000000-0000-0000-0000-000000000000';
 
 /** Generate API default used when the user has not configured a token cap. */
 export const DEFAULT_MAX_OUTPUT_TOKENS = 64_000;
+
+/**
+ * Public Command Code model catalog. Requires no authentication, so it can
+ * validate the bundled allowlist without sending the user's API key.
+ */
+export const MODEL_CATALOG_URL = 'https://api.commandcode.ai/provider/v1/models';
+
+/** Defaults for models discovered in the catalog but absent from the bundled list. */
+export const DEFAULT_REMOTE_CONTEXT_TOKENS = 1_000_000;
+export const DEFAULT_MODEL_OUTPUT_TOKENS = 32_000;
 
 /** Vendor ID exposed to GitHub Copilot Chat. */
 export const VENDOR_ID = 'commandcode';

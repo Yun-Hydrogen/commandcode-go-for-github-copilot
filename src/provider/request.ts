@@ -51,7 +51,7 @@ export async function prepareChatRequest({
 
 	const thinkingCapability = modelDefinition?.capabilities.thinking;
 	const imageInput = modelDefinition?.capabilities.imageInput ?? false;
-	const maxTokens = getMaxTokens();
+	const maxTokens = resolveMaxTokens(getMaxTokens(), modelDefinition?.maxOutputTokens);
 
 	const convertedMessages = convertMessages(messages, { imageInput });
 	const { system, messages: chatMessages } = extractSystemMessages(convertedMessages);
@@ -95,6 +95,24 @@ export async function prepareChatRequest({
 		request,
 		totalRequestChars,
 	};
+}
+
+/**
+ * The user's global cap and the model's advertised cap both apply; the smaller
+ * wins. Without a model definition the global setting (or the API default)
+ * stands alone.
+ */
+function resolveMaxTokens(
+	configured: number | undefined,
+	modelMaxTokens: number | undefined,
+): number | undefined {
+	if (configured === undefined) {
+		return modelMaxTokens;
+	}
+	if (modelMaxTokens === undefined) {
+		return configured;
+	}
+	return Math.min(configured, modelMaxTokens);
 }
 
 function prepareTools(

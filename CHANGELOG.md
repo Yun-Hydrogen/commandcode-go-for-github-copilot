@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+- Validate the bundled model list against Command Code's public model catalog; fall back to the bundled list when it is unreachable.
+- Add **Command Code Go: Model Settings**, a webview for editing each model's input context, output limit, vision support, thinking default, and visibility. Models discovered in the catalog are added with 1,000,000 input tokens and vision enabled.
+- Respect the smaller of the global `maxTokens` setting and the model's advertised output limit.
+
+### Build
+
+- Replace Bun-based scripts with npm scripts; add `package-lock.json`.
+
+### License
+
+- Relicense the project to AGPL-3.0-or-later. The upstream MIT license text and copyright notices are preserved in `LICENSE-MIT`.
+
 ## 0.1.1 (2026-08-19)
 
 ### Features

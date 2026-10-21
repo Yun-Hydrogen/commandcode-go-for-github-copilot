@@ -1,10 +1,20 @@
 import vscode from 'vscode';
 import { AuthManager } from '../auth';
-import { VENDOR_ID } from '../consts';
+import { MODEL_OVERRIDES_KEY, VENDOR_ID } from '../consts';
 import { t } from '../i18n';
 import { logger } from '../logger';
-import { MODELS } from '../models';
+import {
+	sanitizeModelOverrides,
+	type ModelOverrideMap,
+} from '../modelOverrides';
+import type { ModelDefinition } from '../types';
+import {
+	buildModelRows,
+	enabledDefinitions,
+	type EditableModelRow,
+} from './modelCatalog';
 import { toChatInfo } from './models';
+import { RemoteModelCatalog } from './remoteModels';
 import { prepareChatRequest } from './request';
 import { streamChatCompletion } from './stream';
 import { estimateTokenCount } from './tokens';
@@ -16,9 +26,11 @@ import { estimateTokenCount } from './tokens';
  */
 export class CommandCodeChatProvider implements vscode.LanguageModelChatProvider {
 	private readonly authManager: AuthManager;
+	private readonly globalState: vscode.Memento;
 	private readonly onDidChangeLanguageModelChatInformationEmitter = new vscode.EventEmitter<void>();
 	private isActive = true;
-	private readonly modelById = new Map(MODELS.map((m) => [m.id, m]));
+	private readonly remoteModels = new RemoteModelCatalog();
+	private overrides: ModelOverrideMap;
 
 	readonly onDidChangeLanguageModelChatInformation =
 		this.onDidChangeLanguageModelChatInformationEmitter.event;
@@ -31,6 +43,8 @@ export class CommandCodeChatProvider implements vscode.LanguageModelChatProvider
 
 	constructor(context: vscode.ExtensionContext) {
 		this.authManager = new AuthManager(context);
+		this.globalState = context.globalState;
+		this.overrides = sanitizeModelOverrides(context.globalState.get(MODEL_OVERRIDES_KEY));
 
 		context.subscriptions.push(
 			this.onDidChangeLanguageModelChatInformationEmitter,
@@ -68,8 +82,39 @@ export class CommandCodeChatProvider implements vscode.LanguageModelChatProvider
 		return this.authManager.hasApiKey();
 	}
 
-	/** Force Copilot Chat to re-query model information. */
+	/** Every known model, including disabled ones, for the Model Settings GUI. */
+	getEditableModels(): EditableModelRow[] {
+		return buildModelRows(this.remoteModels.getCachedIds(), this.overrides);
+	}
+
+	/** Persist overrides edited in the GUI and refresh the picker. */
+	async saveModelOverrides(value: unknown): Promise<void> {
+		this.overrides = sanitizeModelOverrides(value);
+		await this.globalState.update(MODEL_OVERRIDES_KEY, this.overrides);
+		this.onDidChangeLanguageModelChatInformationEmitter.fire();
+	}
+
+	/** Re-fetch the remote catalog and return the refreshed rows. */
+	async reloadModelCatalog(): Promise<EditableModelRow[]> {
+		this.remoteModels.invalidate();
+		await this.remoteModels.getAvailableIds();
+		this.onDidChangeLanguageModelChatInformationEmitter.fire();
+		return this.getEditableModels();
+	}
+
+	/**
+	 * Force Copilot Chat to re-query model information and re-validate the
+	 * catalog. The fetch runs in the background: the picker is refreshed
+	 * immediately from the cached or bundled list, then refreshed again once
+	 * the catalog confirms which models still exist.
+	 */
 	refreshModelPicker(): void {
+		this.remoteModels.invalidate();
+		void this.remoteModels.getAvailableIds().then((ids) => {
+			if (ids) {
+				this.onDidChangeLanguageModelChatInformationEmitter.fire();
+			}
+		});
 		this.onDidChangeLanguageModelChatInformationEmitter.fire();
 	}
 
@@ -99,7 +144,17 @@ export class CommandCodeChatProvider implements vscode.LanguageModelChatProvider
 		}
 
 		const hasKey = await this.authManager.hasApiKey();
-		return MODELS.map((m) => toChatInfo(m, hasKey));
+		return this.getDefinitions().map((m) => toChatInfo(m, hasKey));
+	}
+
+	/**
+	 * The models the picker should show: bundled entries still present in the
+	 * catalog (or all of them when the catalog is unavailable), catalog-only
+	 * entries with their defaults, plus the user's overrides, minus disabled
+	 * entries.
+	 */
+	private getDefinitions(): readonly ModelDefinition[] {
+		return enabledDefinitions(this.getEditableModels());
 	}
 
 	async provideLanguageModelChatResponse(
@@ -109,7 +164,7 @@ export class CommandCodeChatProvider implements vscode.LanguageModelChatProvider
 		progress: vscode.Progress<vscode.LanguageModelResponsePart>,
 		token: vscode.CancellationToken,
 	): Promise<void> {
-		const modelDefinition = this.modelById.get(modelInfo.id);
+		const modelDefinition = this.getDefinitions().find((m) => m.id === modelInfo.id);
 
 		const prepared = await prepareChatRequest({
 			authManager: this.authManager,
@@ -139,4 +194,5 @@ export class CommandCodeChatProvider implements vscode.LanguageModelChatProvider
 	}
 }
 
+export type { EditableModelRow } from './modelCatalog';
 export { VENDOR_ID as PROVIDER_VENDOR };
