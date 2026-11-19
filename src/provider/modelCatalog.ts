@@ -1,21 +1,13 @@
-import { DEFAULT_MODEL_OUTPUT_TOKENS, DEFAULT_REMOTE_CONTEXT_TOKENS, FAMILY, TOOLS_LIMIT } from '../consts';
+import { CustomModelDefinition, customModelToDefinition } from '../customModels';
 import type { ModelOverride, ModelOverrideMap, ThinkingOverride } from '../modelOverrides';
-import { MODELS } from '../models';
+import { createDefaultModelDefinition, STANDARD_THINKING } from '../models';
 import type { ModelDefinition, ThinkingCapability, ThinkingEffort } from '../types';
 
-const STANDARD_THINKING: ThinkingCapability = {
-	supportedEfforts: ['low', 'medium', 'high'],
-	defaultEffort: 'medium',
-	canDisable: true,
-};
-
-const REMOTE_DETAIL = 'Discovered in the Command Code catalog. Adjust it in Model Settings.';
-
-/** One row of the Model Settings GUI, including disabled models. */
+/** One row of the Model Settings GUI, including disabled and custom models. */
 export interface EditableModelRow {
 	readonly id: string;
 	readonly name: string;
-	readonly bundled: boolean;
+	readonly isCustom: boolean;
 	readonly enabled: boolean;
 	readonly maxInputTokens: number;
 	readonly maxOutputTokens: number;
@@ -25,29 +17,37 @@ export interface EditableModelRow {
 }
 
 /**
- * Combine the bundled allowlist with the fetched catalog and the user's
- * overrides. `remoteIds === undefined` means the catalog is unavailable, in
- * which case the bundled list is used unchanged (never an empty picker).
+ * Combine user custom models with the fetched catalog and the user's overrides.
  */
 export function buildModelRows(
 	remoteIds: ReadonlySet<string> | undefined,
+	customModels: readonly CustomModelDefinition[],
 	overrides: ModelOverrideMap,
 ): EditableModelRow[] {
 	const rows: EditableModelRow[] = [];
 	const seen = new Set<string>();
 
-	for (const model of MODELS) {
-		if (remoteIds && !remoteIds.has(model.id)) {
-			continue;
-		}
-		rows.push(toRow(model, true, overrides[model.id]));
-		seen.add(model.id);
+	// 1. Custom models added by the user
+	for (const custom of customModels) {
+		const base = customModelToDefinition(custom);
+		rows.push(toRow(base, true, overrides[custom.id]));
+		seen.add(custom.id);
 	}
 
+	// 2. Models discovered from the remote catalog
 	if (remoteIds) {
-		const discovered = [...remoteIds].filter((id) => !seen.has(id)).sort();
-		for (const id of discovered) {
-			rows.push(toRow(remoteOnlyModel(id), false, overrides[id]));
+		const sortedRemoteIds = [...remoteIds].filter((id) => !seen.has(id)).sort();
+		for (const id of sortedRemoteIds) {
+			rows.push(toRow(createDefaultModelDefinition(id), false, overrides[id]));
+			seen.add(id);
+		}
+	}
+
+	// 3. Models that have overrides stored from previous sessions
+	for (const id of Object.keys(overrides)) {
+		if (!seen.has(id)) {
+			rows.push(toRow(createDefaultModelDefinition(id), false, overrides[id]));
+			seen.add(id);
 		}
 	}
 
@@ -73,13 +73,13 @@ export function enabledDefinitions(rows: readonly EditableModelRow[]): ModelDefi
 
 function toRow(
 	base: ModelDefinition,
-	bundled: boolean,
+	isCustom: boolean,
 	override: ModelOverride | undefined,
 ): EditableModelRow {
 	return {
 		id: base.id,
 		name: base.name,
-		bundled,
+		isCustom,
 		enabled: override?.enabled ?? true,
 		maxInputTokens: override?.maxInputTokens ?? base.maxInputTokens,
 		maxOutputTokens: override?.maxOutputTokens ?? base.maxOutputTokens,
@@ -91,32 +91,15 @@ function toRow(
 	};
 }
 
-function remoteOnlyModel(id: string): ModelDefinition {
-	return {
-		id,
-		name: id.split('/').pop() || id,
-		family: FAMILY,
-		version: 'catalog',
-		detail: REMOTE_DETAIL,
-		maxInputTokens: DEFAULT_REMOTE_CONTEXT_TOKENS,
-		maxOutputTokens: DEFAULT_MODEL_OUTPUT_TOKENS,
-		capabilities: {
-			toolCalling: TOOLS_LIMIT,
-			// Fetched models default to vision on; the GUI can turn it off.
-			imageInput: true,
-			thinking: STANDARD_THINKING,
-		},
-		category: 'Discovered',
-	};
-}
-
 function resolveThinking(
 	baseThinking: ThinkingCapability | false,
 	override: ThinkingOverride,
 ): ThinkingCapability | false {
 	const effort: ThinkingEffort =
 		override === 'inherit'
-			? (baseThinking === false ? 'none' : baseThinking.defaultEffort)
+			? baseThinking === false
+				? 'none'
+				: baseThinking.defaultEffort
 			: override;
 
 	if (baseThinking === false) {

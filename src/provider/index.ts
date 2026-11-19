@@ -1,18 +1,14 @@
 import vscode from 'vscode';
 import { AuthManager } from '../auth';
-import { MODEL_OVERRIDES_KEY, VENDOR_ID } from '../consts';
+import { CUSTOM_MODELS_KEY, MODEL_OVERRIDES_KEY, VENDOR_ID } from '../consts';
+import { CustomModelDefinition, sanitizeCustomModels } from '../customModels';
 import { t } from '../i18n';
 import { logger } from '../logger';
-import {
-	sanitizeModelOverrides,
-	type ModelOverrideMap,
-} from '../modelOverrides';
+import { sanitizeModelOverrides, type ModelOverrideMap } from '../modelOverrides';
+import { createDefaultModelDefinition } from '../models';
+import { fetchAccountQuota, type AccountQuotaResult } from '../client';
 import type { ModelDefinition } from '../types';
-import {
-	buildModelRows,
-	enabledDefinitions,
-	type EditableModelRow,
-} from './modelCatalog';
+import { buildModelRows, enabledDefinitions, type EditableModelRow } from './modelCatalog';
 import { toChatInfo } from './models';
 import { RemoteModelCatalog } from './remoteModels';
 import { prepareChatRequest } from './request';
@@ -31,6 +27,7 @@ export class CommandCodeChatProvider implements vscode.LanguageModelChatProvider
 	private isActive = true;
 	private readonly remoteModels = new RemoteModelCatalog();
 	private overrides: ModelOverrideMap;
+	private customModels: CustomModelDefinition[];
 
 	readonly onDidChangeLanguageModelChatInformation =
 		this.onDidChangeLanguageModelChatInformationEmitter.event;
@@ -45,6 +42,7 @@ export class CommandCodeChatProvider implements vscode.LanguageModelChatProvider
 		this.authManager = new AuthManager(context);
 		this.globalState = context.globalState;
 		this.overrides = sanitizeModelOverrides(context.globalState.get(MODEL_OVERRIDES_KEY));
+		this.customModels = sanitizeCustomModels(context.globalState.get(CUSTOM_MODELS_KEY));
 
 		context.subscriptions.push(
 			this.onDidChangeLanguageModelChatInformationEmitter,
@@ -82,9 +80,20 @@ export class CommandCodeChatProvider implements vscode.LanguageModelChatProvider
 		return this.authManager.hasApiKey();
 	}
 
-	/** Every known model, including disabled ones, for the Model Settings GUI. */
+	async getAccountQuota(): Promise<AccountQuotaResult> {
+		const key = await this.authManager.getApiKey();
+		if (!key) {
+			return {
+				success: false,
+				error: t('auth.notConfigured'),
+			};
+		}
+		return fetchAccountQuota(key);
+	}
+
+	/** Every known model, including custom and disabled ones, for the Model Settings GUI. */
 	getEditableModels(): EditableModelRow[] {
-		return buildModelRows(this.remoteModels.getCachedIds(), this.overrides);
+		return buildModelRows(this.remoteModels.getCachedIds(), this.customModels, this.overrides);
 	}
 
 	/** Persist overrides edited in the GUI and refresh the picker. */
@@ -92,6 +101,50 @@ export class CommandCodeChatProvider implements vscode.LanguageModelChatProvider
 		this.overrides = sanitizeModelOverrides(value);
 		await this.globalState.update(MODEL_OVERRIDES_KEY, this.overrides);
 		this.onDidChangeLanguageModelChatInformationEmitter.fire();
+	}
+
+	/** Get current custom models list. */
+	getCustomModels(): readonly CustomModelDefinition[] {
+		return this.customModels;
+	}
+
+	/** Save custom models list. */
+	async saveCustomModels(value: unknown): Promise<void> {
+		this.customModels = sanitizeCustomModels(value);
+		await this.globalState.update(CUSTOM_MODELS_KEY, this.customModels);
+		this.onDidChangeLanguageModelChatInformationEmitter.fire();
+	}
+
+	/** Add or update a custom model. */
+	async addCustomModel(model: unknown): Promise<boolean> {
+		const sanitized = sanitizeCustomModels([model]);
+		if (sanitized.length === 0) {
+			return false;
+		}
+		const newModel = sanitized[0]!;
+		const filtered = this.customModels.filter((m) => m.id !== newModel.id);
+		filtered.push(newModel);
+		this.customModels = filtered;
+		await this.globalState.update(CUSTOM_MODELS_KEY, this.customModels);
+		this.onDidChangeLanguageModelChatInformationEmitter.fire();
+		return true;
+	}
+
+	/** Delete a custom model by id. */
+	async deleteCustomModel(id: string): Promise<boolean> {
+		const initialCount = this.customModels.length;
+		this.customModels = this.customModels.filter((m) => m.id !== id);
+		if (this.customModels.length !== initialCount) {
+			await this.globalState.update(CUSTOM_MODELS_KEY, this.customModels);
+			// Also clean up any override for this model
+			if (this.overrides[id]) {
+				delete this.overrides[id];
+				await this.globalState.update(MODEL_OVERRIDES_KEY, this.overrides);
+			}
+			this.onDidChangeLanguageModelChatInformationEmitter.fire();
+			return true;
+		}
+		return false;
 	}
 
 	/** Re-fetch the remote catalog and return the refreshed rows. */
@@ -104,9 +157,7 @@ export class CommandCodeChatProvider implements vscode.LanguageModelChatProvider
 
 	/**
 	 * Force Copilot Chat to re-query model information and re-validate the
-	 * catalog. The fetch runs in the background: the picker is refreshed
-	 * immediately from the cached or bundled list, then refreshed again once
-	 * the catalog confirms which models still exist.
+	 * catalog.
 	 */
 	refreshModelPicker(): void {
 		this.remoteModels.invalidate();
@@ -122,10 +173,6 @@ export class CommandCodeChatProvider implements vscode.LanguageModelChatProvider
 		this.isActive = false;
 		this.onDidChangeLanguageModelChatInformationEmitter.fire();
 
-		// Trigger one final sync pull so the picker drops our entries immediately
-		// instead of waiting for the host to invalidate its cache. With
-		// `isActive = false` we return [], which makes Copilot Chat drop
-		// Command Code Go models from the picker immediately on deactivate.
 		try {
 			await vscode.lm.selectChatModels({ vendor: VENDOR_ID });
 		} catch (error) {
@@ -148,10 +195,8 @@ export class CommandCodeChatProvider implements vscode.LanguageModelChatProvider
 	}
 
 	/**
-	 * The models the picker should show: bundled entries still present in the
-	 * catalog (or all of them when the catalog is unavailable), catalog-only
-	 * entries with their defaults, plus the user's overrides, minus disabled
-	 * entries.
+	 * The models the picker should show: custom models, catalog models, plus overrides,
+	 * minus disabled entries.
 	 */
 	private getDefinitions(): readonly ModelDefinition[] {
 		return enabledDefinitions(this.getEditableModels());
@@ -164,7 +209,9 @@ export class CommandCodeChatProvider implements vscode.LanguageModelChatProvider
 		progress: vscode.Progress<vscode.LanguageModelResponsePart>,
 		token: vscode.CancellationToken,
 	): Promise<void> {
-		const modelDefinition = this.getDefinitions().find((m) => m.id === modelInfo.id);
+		const modelDefinition =
+			this.getDefinitions().find((m) => m.id === modelInfo.id) ??
+			createDefaultModelDefinition(modelInfo.id, modelInfo.name);
 
 		const prepared = await prepareChatRequest({
 			authManager: this.authManager,

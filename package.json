@@ -1,15 +1,15 @@
 {
-    "name": "command-code-go-for-github-copilot",
-    "displayName": "Command Code Go for VS Code",
-    "description": "Use Command Code Go models in the GitHub Copilot Chat model picker for vscode. Vision, thinking mode, agent tools — BYOK.",
+    "name": "commandcode-copilot-bridger",
+    "displayName": "CommandCode-Copilot Bridger",
+    "description": "Bridge Command Code models to GitHub Copilot Chat for VS Code. Vision, thinking mode, agent tools, custom models — BYOK.",
     "icon": "resources/icon.png",
     "version": "0.2.4",
-    "publisher": "hotrungnhan",
-    "author": "Ho Trung Nhan",
+    "publisher": "yun-hydrogen",
+    "author": "Yun_Hydrogen",
     "license": "AGPL-3.0-or-later",
     "repository": {
         "type": "git",
-        "url": "https://github.com/hotrungnhan/commandcode-go-for-github-copilot"
+        "url": "https://github.com/Yun-Hydrogen/commandcode-copilot-bridger"
     },
     "engines": {
         "vscode": "^1.116.0"
@@ -44,7 +44,7 @@
         "languageModelChatProviders": [
             {
                 "vendor": "commandcode",
-                "displayName": "Command Code Go"
+                "displayName": "CommandCode Bridger"
             }
         ],
         "commands": [
@@ -75,6 +75,14 @@
             {
                 "command": "commandcode-copilot.manageModels",
                 "title": "%commandcode-copilot.command.manageModels%"
+            },
+            {
+                "command": "commandcode-copilot.statusBarMenu",
+                "title": "%commandcode-copilot.command.statusBarMenu%"
+            },
+            {
+                "command": "commandcode-copilot.refreshQuota",
+                "title": "%commandcode-copilot.command.refreshQuota%"
             }
         ],
         "walkthroughs": [
@@ -161,7 +169,7 @@
         "lint": "eslint \"src/**/*.ts\"",
         "format": "oxfmt --write src/",
         "format:check": "oxfmt --check src/",
-        "package": "npm run compile && node -e \"require('fs').mkdirSync('dist', { recursive: true })\" && vsce package --no-dependencies -o dist/command-code-go-for-github-copilot.vsix"
+        "package": "npm run compile && node -e \"require('fs').mkdirSync('dist', { recursive: true })\" && vsce package --no-dependencies -o dist/commandcode-copilot-bridger.vsix"
     },
     "devDependencies": {
         "@types/node": "^25.6.0",
@@ -172,5 +180,9 @@
         "eslint": "^10.8.1",
         "oxfmt": "^0.47.0",
         "typescript": "^6.0.3"
+    },
+    "dependencies": {
+        "riz-ui": "github:Yun-Hydrogen/riz-ui",
+        "vue": "^3.5.45"
     }
 }

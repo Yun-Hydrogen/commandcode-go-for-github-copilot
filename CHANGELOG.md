@@ -11,6 +11,7 @@
 ### Build
 
 - Replace Bun-based scripts with npm scripts; add `package-lock.json`.
+- Completely migrate CI workflows and configuration from Bun to Node.js/npm; remove `bun.lock`.
 
 ### License
 

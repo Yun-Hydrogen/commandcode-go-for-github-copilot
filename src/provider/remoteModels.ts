@@ -68,10 +68,9 @@ export class RemoteModelCatalog {
 			logger.debug(`Model catalog validated: ${ids.size} models advertised`);
 			return ids;
 		} catch (error) {
-			this.availableIds = undefined;
 			this.ttl = FAILURE_TTL_MS;
-			logger.debug('Model catalog unavailable; using the bundled allowlist', error);
-			return undefined;
+			logger.debug('Model catalog unavailable; using cached models', error);
+			return this.availableIds;
 		} finally {
 			clearTimeout(timer);
 			this.lastAttempt = Date.now();

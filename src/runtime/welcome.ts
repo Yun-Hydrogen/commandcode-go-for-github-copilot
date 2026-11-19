@@ -1,5 +1,5 @@
 import vscode from 'vscode';
-import { WALKTHROUGH_ID, WELCOME_SHOWN_KEY } from '../consts';
+import { WELCOME_SHOWN_KEY } from '../consts';
 import { CommandCodeChatProvider } from '../provider';
 
 export async function showWelcomeIfNeeded(
@@ -14,6 +14,7 @@ export async function showWelcomeIfNeeded(
 		return;
 	}
 
-	await vscode.commands.executeCommand('workbench.action.openWalkthrough', WALKTHROUGH_ID, false);
+	const walkthroughId = `${context.extension.id}#commandcodeGettingStarted`;
+	await vscode.commands.executeCommand('workbench.action.openWalkthrough', walkthroughId, false);
 	await context.globalState.update(WELCOME_SHOWN_KEY, true);
 }

@@ -1,10 +1,8 @@
-# Command Code Go for VS Code
+# CommandCode-Copilot Bridger
 
-Use the models included with the [Command Code Go plan](https://commandcode.ai/docs/plans/go) directly in GitHub Copilot Chat.
+Use models from [Command Code](https://commandcode.ai) directly in GitHub Copilot Chat for VS Code. Supports cloud catalog synchronization, custom user-added models, vision, thinking mode, agent tools, and BYOK.
 
-This fork is maintained by [Ho Trung Nhan](https://github.com/hotrungnhan). The source code and issue tracker are hosted at [hotrungnhan/commandcode-go-for-github-copilot](https://github.com/hotrungnhan/commandcode-go-for-github-copilot).
-
-This extension is intentionally Go-plan-only. It does not support the Provider, Pro, or Max plans. The supported model allowlist follows the Go-plan documentation; if a Go model is missing, [open an issue](https://github.com/hotrungnhan/commandcode-go-for-github-copilot/issues).
+Maintained by [Yun_Hydrogen](https://github.com/Yun-Hydrogen).
 
 ## What it provides
 
@@ -29,8 +27,6 @@ Install the CLI globally:
 ```bash
 npm install --global command-code@latest
 ```
-
-`bun add --global command-code@latest` works too if you prefer Bun.
 
 Start the browser-based login flow:
 
@@ -57,7 +53,7 @@ Open Copilot Chat, choose a Command Code model, and start chatting. The model li
 - VS Code 1.116 or newer
 - GitHub Copilot Chat
 - An active Command Code Go plan
-- Node.js or Bun (only needed to install and authenticate the Command Code CLI)
+- Node.js (only needed to install and authenticate the Command Code CLI)
 
 ## Settings
 
@@ -88,18 +84,16 @@ Overrides are stored in VS Code `globalState` (not in `settings.json`), apply im
 npm install
 npm run compile   # clean + tsc
 npm run lint
-npm run package   # builds dist/command-code-go-for-github-copilot.vsix
+npm run package   # builds dist/commandcode-copilot-bridger.vsix
 ```
-
-Building uses npm; Bun is optional and only relevant if you install the Command Code CLI with `bun add --global`.
 
 ## Problems or missing models
 
-If a model listed for Go is not available in the extension, or a supported request fails, please [create an issue](https://github.com/hotrungnhan/commandcode-go-for-github-copilot/issues) with the model name and the relevant output-channel error. Never include your API token.
+If a model is not available in the extension, or a supported request fails, please create an issue with the model name and the relevant output-channel error. Never include your API token.
 
 ## Attribution
 
-This project is a fork of the original [Command Code Copilot Provider](https://github.com/Tyrannmisu/commandcode-copilot-provider) by Tyrannmisu, maintained and published by [Ho Trung Nhan](https://github.com/hotrungnhan).
+This project is maintained and published by [Yun_Hydrogen](https://github.com/Yun-Hydrogen), based on the work by Ho Trung Nhan and the original [Command Code Copilot Provider](https://github.com/Tyrannmisu/commandcode-copilot-provider) by Tyrannmisu.
 
 The original work was released under the MIT License. Those terms still apply to the upstream code: the full MIT text and its copyright notices are preserved in [LICENSE-MIT](LICENSE-MIT), alongside the AGPL license that now covers this project as a whole.
 

@@ -7,6 +7,7 @@ import { registerCommands } from './commands';
 import { initializeDiagnostics } from './diagnostics';
 import { registerModelSettings } from './modelSettings';
 import { registerProvider } from './provider';
+import { registerStatusBar } from './statusBar';
 import { showWelcomeIfNeeded } from './welcome';
 
 let activeProvider: CommandCodeChatProvider | undefined;
@@ -20,6 +21,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		const provider = await registerProvider(context);
 		activeProvider = provider;
 		registerModelSettings(context, provider);
+		context.subscriptions.push(registerStatusBar(context, provider));
 
 		void showWelcomeIfNeeded(context, provider).catch((error) => {
 			logger.warn(t('extension.welcomeFailed'), error);

@@ -8,3 +8,4 @@ export {
 	setErrorActionUrl,
 } from './error';
 export type { CommandCodeRequestErrorKind, ErrorActionUrls } from './types';
+export { fetchAccountQuota, type AccountQuotaResult, type QuotaWindowData } from './usage';

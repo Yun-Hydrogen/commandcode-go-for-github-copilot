@@ -39,11 +39,13 @@ export const WELCOME_SHOWN_KEY = 'commandcode-copilot.welcomeShown';
 /** globalState key holding per-model overrides edited in the Model Settings GUI. */
 export const MODEL_OVERRIDES_KEY = 'commandcode-copilot.modelOverrides';
 
+/** globalState key holding user-added custom models. */
+export const CUSTOM_MODELS_KEY = 'commandcode-copilot.customModels';
+
 // ---- Walkthrough ----
 
 /** Walkthrough contribution ID. */
-export const WALKTHROUGH_ID =
-	'hotrungnhan.command-code-go-for-github-copilot#commandcodeGettingStarted';
+export const WALKTHROUGH_ID = 'yun-hydrogen.commandcode-copilot-bridger#commandcodeGettingStarted';
 
 // ---- Limits ----
 

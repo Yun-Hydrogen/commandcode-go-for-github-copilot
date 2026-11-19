@@ -14,7 +14,6 @@ tsconfig.json
 .vscode-test/
 dist/**
 package-lock.json
-bun.lock
 eslint.config.mjs
 example.jsonl
 .DS_Store
